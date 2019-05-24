@@ -38,18 +38,17 @@ public class ImportService {
 		LOG.info("ImportFile start");
 		LocalDateTime start = LocalDateTime.now();		
 		this.rowRepository.deleteAll();
-		LOG.info(String.format("ImportFile Db cleaned in %d sec",Duration.between(LocalDateTime.now(), start).getSeconds()));
+		LOG.info(String.format("ImportFile Db cleaned in %d sec",Duration.between(start,LocalDateTime.now()).getSeconds()));
 		Path csvPath = Paths.get(this.tmpDir + "/" + fileName);
 		Flux<String> lineFlux = Flux.using(() -> Files.lines(csvPath), Flux::fromStream, BaseStream::close);
-		lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel()).subscribe(rows -> this.storeRows(rows));
-		LOG.info(String.format("ImportFile Db imported in %d sec", Duration.between(LocalDateTime.now(), start)));
+		lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel()).subscribe(rows -> this.storeRows(rows,start));
 		return "Done";
 	}
 
 	@Transactional
-	private void storeRows(List<Row> rows) {		
+	private void storeRows(List<Row> rows, LocalDateTime start) {		
 		this.rowRepository.saveAll(rows);
-		LOG.info("Rows stored.");
+		LOG.info(String.format("Rows stored in %d sec", Duration.between(start, LocalDateTime.now()).getSeconds()));
 	}
 	
 	private Flux<Row> strToRow(String line) {
