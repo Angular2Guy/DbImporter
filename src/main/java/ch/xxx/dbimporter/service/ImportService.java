@@ -6,7 +6,9 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.BaseStream;
 
@@ -33,11 +35,14 @@ public class ImportService {
 	private RowRepository rowRepository;
 
 	public String importFile(String fileName) {
-//		File csvFile = new File(this.tmpDir + "/"+fileName);
+		LOG.info("ImportFile start");
+		LocalDateTime start = LocalDateTime.now();		
 		this.rowRepository.deleteAll();
+		LOG.info(String.format("ImportFile Db cleaned in %d sec",Duration.between(LocalDateTime.now(), start).getSeconds()));
 		Path csvPath = Paths.get(this.tmpDir + "/" + fileName);
 		Flux<String> lineFlux = Flux.using(() -> Files.lines(csvPath), Flux::fromStream, BaseStream::close);
 		lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel()).subscribe(rows -> this.storeRows(rows));
+		LOG.info(String.format("ImportFile Db imported in %d sec", Duration.between(LocalDateTime.now(), start)));
 		return "Done";
 	}
 
