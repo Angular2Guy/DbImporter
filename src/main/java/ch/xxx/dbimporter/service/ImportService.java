@@ -45,6 +45,7 @@ public class ImportService {
 	private String tmpDir;
 	@Autowired
 	private RowRepository rowRepository;
+	private static final int MB = 1024*1024;
 
 	public String importFile(String fileName) {
 		LOG.info("ImportFile start");
@@ -59,8 +60,8 @@ public class ImportService {
 
 	@Transactional
 	private void storeRows(List<Row> rows, LocalDateTime start) {		
-		this.rowRepository.saveAll(rows);
-		LOG.info(String.format("Rows stored in %d sec", Duration.between(start, LocalDateTime.now()).getSeconds()));
+		this.rowRepository.saveAll(rows);		
+		LOG.info(String.format("Rows stored in %d sec, Mem %d mb", Duration.between(start, LocalDateTime.now()).getSeconds(), ((Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/MB)));
 	}
 	
 	private Flux<Row> strToRow(String line) {

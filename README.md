@@ -14,4 +14,4 @@ To import the file the Db Importer uses the rest endpoint: /rest/import/single?f
 The Db Importer uses the Spring Flux to read in the file map it in Jpa entities and split it in lists of 1000 entities. Then the Flux stores the entities in parallel in Postgresql. Each list of entities gets a transaction.
 
 ## Result
-The Java Cpu load is not the limiting factor. The Postgresql db gets loaded to the max. The Result will depend on the power of your db but until you hit the limit of your Java Cpu load this simple setup is sufficiant. 
+With 2 GB Ram the Java Cpu load is not the limiting factor. The Postgresql db gets loaded to the max. The Result will depend on the power of your db but until you hit the limit of your Java Cpu load this simple setup is sufficiant. 
