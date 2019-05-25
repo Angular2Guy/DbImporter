@@ -1,15 +1,17 @@
-# Getting Started
+# Db Importer
 
-### Reference Documentation
-For further reference, please consider the following sections:
+## Purpose
+The project had the purpose to test the performance of Spring Boot with Jpa and Webflux for the import of larger(3GB file, 10M rows) Dataset. As Database Postgresql is used because easy to use and free and can be run as Docker image.
 
-* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
+## Create a inputfile
+To import a larger Dataset the Db Importer can create it with the rest endpoint: /rest/import/generate?rows=10000000
+The file will be stored at a directory that has to be set in the property: dbimporter.tempdir
+The filename is: import.csv
 
-### Guides
-The following guides illustrate how to use some features concretely:
 
-* [Securing a Web Application](https://spring.io/guides/gs/securing-web/)
-* [Spring Boot and OAuth2](https://spring.io/guides/tutorials/spring-boot-oauth2/)
-* [Authenticating a User with LDAP](https://spring.io/guides/gs/authenticating-ldap/)
-* [Accessing Data with JPA](https://spring.io/guides/gs/accessing-data-jpa/)
+## Import the inputfile
+To import the file the Db Importer uses the rest endpoint: /rest/import/single?filename=import.csv
+The Db Importer uses the Spring Flux to read in the file map it in Jpa entities and split it in lists of 1000 entities. Then the Flux stores the entities in parallel in Postgresql. Each list of entities gets a transaction.
 
+## Result
+The Java Cpu load is not the limiting factor. The Postgresql db gets loaded to the max. The Result will depend on the power of your db but until you hit the limit of your Java Cpu load this simple setup is sufficiant. 
