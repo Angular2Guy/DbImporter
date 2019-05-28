@@ -4,13 +4,13 @@
 The project had the purpose to test the performance of Spring Boot with Jpa and Webflux for the import of larger(3GB file, 10M rows) Dataset. As Database Postgresql is used because easy to use and free and can be run as Docker image.
 
 ## Create a inputfile
-To import a larger Dataset the Db Importer can create it with the rest endpoint: /rest/import/generate?rows=10000000
+To import a larger Dataset the Db Importer can create it with the rest endpoint: /rest/import/generate?rows=10000000&type=csv
 The file will be stored at a directory that has to be set in the property: dbimporter.tempdir
 The filename is: import.csv
 
 
 ## Import the inputfile
-To import the file the Db Importer uses the rest endpoint: /rest/import/single?filename=import.csv
+To import the file the Db Importer uses the rest endpoint: /rest/import/single?type=csv
 The Db Importer uses the Spring Flux to read in the file map it in Jpa entities and split it in lists of 1000 entities. Then the Flux stores the entities in parallel in Postgresql. Each list of entities gets a transaction.
 
 ## Result
