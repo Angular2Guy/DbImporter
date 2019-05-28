@@ -30,8 +30,12 @@ public class ImportController {
 	private ImportService service;
 
 	@GetMapping("/single")
-	public Mono<String> importSingleFile(@RequestParam String filename) {
-		return Mono.just(this.service.importFile(filename));
+	public Mono<String> importSingleFile(@RequestParam String type) {
+		try {
+			return Mono.just(this.service.importFile(type));
+		} catch (IOException e) {
+			return Mono.empty();
+		}
 	}
 	
 	@GetMapping("/multi")

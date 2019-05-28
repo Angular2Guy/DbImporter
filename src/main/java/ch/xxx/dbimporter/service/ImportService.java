@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.BaseStream;
+import java.util.stream.Stream;
 
 import javax.transaction.Transactional;
 
@@ -36,8 +37,12 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import ch.xxx.dbimporter.dto.RowDto;
 import ch.xxx.dbimporter.entity.Row;
@@ -54,17 +59,60 @@ public class ImportService {
 	private RowRepository rowRepository;
 	private static final int MB = 1024 * 1024;
 
-	public String importFile(String fileName) {
+	public String importFile(String fileType) throws JsonProcessingException, IOException {
 		LOG.info("ImportFile start");
 		LocalDateTime start = LocalDateTime.now();
 		this.rowRepository.bulkDelete();
 		LOG.info(String.format("ImportFile Db cleaned in %d sec",
 				Duration.between(start, LocalDateTime.now()).getSeconds()));
-		Path csvPath = Paths.get(this.tmpDir + "/" + fileName);
-		Flux<String> lineFlux = Flux.using(() -> Files.lines(csvPath), Flux::fromStream, BaseStream::close);
-		lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel())
-				.subscribe(rows -> this.storeRows(rows, start));
+		if (fileType.contains("csv")) {
+			Path csvPath = Paths.get(this.tmpDir + "/import." + fileType);
+			Flux<String> lineFlux = Flux.using(() -> Files.lines(csvPath), Flux::fromStream, BaseStream::close);
+			lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel())
+					.subscribe(rows -> this.storeRows(rows, start));
+		}
+		if (fileType.contains("json")) {
+			File jsonFile = new File(this.tmpDir + "/import." + fileType);
+			JsonParser parser = this.createParser(jsonFile);
+			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(parser), Flux::fromStream, BaseStream::close);
+//			try (JsonParser parser = new JsonFactory().createParser(jsonFile)) {
+//				parser.setCodec(this.createObjectMapper());
+//				parser.nextToken();
+//				while (parser.getCurrentName() == null || !parser.getCurrentName().equals("rows")) {
+//					parser.nextToken();
+//				}
+//				parser.nextToken();
+//				parser.nextToken();
+//				RowDto rowDto = null;
+//				do {
+//					rowDto = readRowDto(parser);
+//				} while (rowDto != null);
+//			}
+		}
 		return "Done";
+	}
+
+	private JsonParser createParser(File file) throws IOException {
+		JsonParser parser = new JsonFactory().createParser(file);
+		parser.setCodec(this.createObjectMapper());
+		parser.nextToken();
+		while (parser.getCurrentName() == null || !parser.getCurrentName().equals("rows")) {
+			parser.nextToken();
+		}
+		parser.nextToken();
+		parser.nextToken();
+		return parser;
+	}
+
+	private Stream<RowDto> readRowDto(JsonParser parser) throws IOException {
+		 RowDto rowDto = parser.readValueAs(RowDto.class);
+		 return Stream.iterate(rowDto, x -> x != null, (x) -> {
+			try {
+				return parser.readValueAs(RowDto.class);
+			} catch (IOException e) {
+				return null;
+			}
+		});
 	}
 
 	@Transactional
@@ -73,6 +121,13 @@ public class ImportService {
 		LOG.info(String.format("Rows stored in %d sec, Mem %d mb",
 				Duration.between(start, LocalDateTime.now()).getSeconds(),
 				((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / MB)));
+	}
+
+	private ObjectMapper createObjectMapper() {
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.registerModule(new JavaTimeModule());
+		objectMapper.configure(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS, false);
+		return objectMapper;
 	}
 
 	private Flux<Row> strToRow(String line) {
@@ -112,7 +167,7 @@ public class ImportService {
 		}
 		if ("json".equals(type)) {
 			try (JsonGenerator jsonGen = new JsonFactory().createGenerator(outputFile, JsonEncoding.UTF8)) {
-				jsonGen.setCodec(new ObjectMapper());
+				jsonGen.setCodec(this.createObjectMapper());
 				jsonGen.setPrettyPrinter(new DefaultPrettyPrinter());
 				jsonGen.writeStartObject();
 				jsonGen.writeFieldName("rows");
