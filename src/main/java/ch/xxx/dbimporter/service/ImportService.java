@@ -75,6 +75,8 @@ public class ImportService {
 			File jsonFile = new File(this.tmpDir + "/import." + fileType);
 			JsonParser parser = this.createParser(jsonFile);
 			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(parser), Flux::fromStream, BaseStream::close);
+			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
+				.subscribe(rows -> this.storeRows(rows, start));
 //			try (JsonParser parser = new JsonFactory().createParser(jsonFile)) {
 //				parser.setCodec(this.createObjectMapper());
 //				parser.nextToken();
@@ -92,6 +94,29 @@ public class ImportService {
 		return "Done";
 	}
 
+	private Flux<Row> dtoToRow(RowDto dto) {
+		Row row = new Row();
+		row.setDate1(dto.getDate1());
+		row.setDate2(dto.getDate2());
+		row.setDate3(dto.getDate3());
+		row.setDate4(dto.getDate4());
+		row.setLong1(dto.getLong1());
+		row.setLong2(dto.getLong2());
+		row.setLong3(dto.getLong3());
+		row.setLong4(dto.getLong4());
+		row.setLong5(dto.getLong5());
+		row.setStr1(dto.getStr1());
+		row.setStr2(dto.getStr2());
+		row.setStr3(dto.getStr3());
+		row.setStr4(dto.getStr4());
+		row.setStr5(dto.getStr5());
+		row.setStr6(dto.getStr6());
+		row.setStr7(dto.getStr7());
+		row.setStr8(dto.getStr8());
+		row.setStr9(dto.getStr9());
+		return Flux.just(row);
+	}
+	
 	private JsonParser createParser(File file) throws IOException {
 		JsonParser parser = new JsonFactory().createParser(file);
 		parser.setCodec(this.createObjectMapper());
