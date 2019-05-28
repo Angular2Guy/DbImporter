@@ -12,7 +12,7 @@
  */
 package ch.xxx.dbimporter.controller;
 
-import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,10 +40,10 @@ public class ImportController {
 	}
 	
 	@GetMapping("/generate")
-	public Mono<String> generateFile(@RequestParam Long rows)  {
+	public Mono<String> generateFile(@RequestParam Long rows, @RequestParam String type)  {
 		try {
-			return Mono.just(this.service.generateFile(rows));
-		} catch (FileNotFoundException e) {
+			return Mono.just(this.service.generateFile(rows, type));
+		} catch (IOException e) {
 			return Mono.empty();
 		}
 	}

@@ -13,7 +13,7 @@
 package ch.xxx.dbimporter.service;
 
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +33,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import ch.xxx.dbimporter.dto.RowDto;
 import ch.xxx.dbimporter.entity.Row;
 import ch.xxx.dbimporter.entity.RowRepository;
 import reactor.core.publisher.Flux;
@@ -45,25 +52,29 @@ public class ImportService {
 	private String tmpDir;
 	@Autowired
 	private RowRepository rowRepository;
-	private static final int MB = 1024*1024;
+	private static final int MB = 1024 * 1024;
 
 	public String importFile(String fileName) {
 		LOG.info("ImportFile start");
-		LocalDateTime start = LocalDateTime.now();		
+		LocalDateTime start = LocalDateTime.now();
 		this.rowRepository.bulkDelete();
-		LOG.info(String.format("ImportFile Db cleaned in %d sec",Duration.between(start,LocalDateTime.now()).getSeconds()));		
+		LOG.info(String.format("ImportFile Db cleaned in %d sec",
+				Duration.between(start, LocalDateTime.now()).getSeconds()));
 		Path csvPath = Paths.get(this.tmpDir + "/" + fileName);
 		Flux<String> lineFlux = Flux.using(() -> Files.lines(csvPath), Flux::fromStream, BaseStream::close);
-		lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel()).subscribe(rows -> this.storeRows(rows,start));
+		lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel())
+				.subscribe(rows -> this.storeRows(rows, start));
 		return "Done";
 	}
 
 	@Transactional
-	private void storeRows(List<Row> rows, LocalDateTime start) {		
-		this.rowRepository.saveAll(rows);		
-		LOG.info(String.format("Rows stored in %d sec, Mem %d mb", Duration.between(start, LocalDateTime.now()).getSeconds(), ((Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/MB)));
+	private void storeRows(List<Row> rows, LocalDateTime start) {
+		this.rowRepository.saveAll(rows);
+		LOG.info(String.format("Rows stored in %d sec, Mem %d mb",
+				Duration.between(start, LocalDateTime.now()).getSeconds(),
+				((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / MB)));
 	}
-	
+
 	private Flux<Row> strToRow(String line) {
 		Row row = new Row();
 		String[] properties = line.split(",");
@@ -87,20 +98,37 @@ public class ImportService {
 		row.setLong5(Long.parseLong(properties[17]));
 		return Flux.just(row);
 	}
-	
-	public String generateFile(long rows) throws FileNotFoundException {
-		File csvFile = new File(this.tmpDir + "/import.csv");
-		try (PrintWriter pw = new PrintWriter(csvFile)) {
-			for (long l = 0; l < rows; l++) {
-				Row row = createRandomRow(l);
-				String csvStr = convertRowToCsv(row);
-				pw.println(csvStr);
+
+	public String generateFile(long rows, String type) throws IOException {
+		File outputFile = new File(this.tmpDir + "/import." + type);
+		if ("csv".equals(type)) {
+			try (PrintWriter pw = new PrintWriter(outputFile)) {
+				for (long l = 0; l < rows; l++) {
+					RowDto row = createRandomRow(l);
+					String csvStr = convertRowToCsv(row);
+					pw.println(csvStr);
+				}
 			}
 		}
-		return "import.csv";
+		if ("json".equals(type)) {
+			try (JsonGenerator jsonGen = new JsonFactory().createGenerator(outputFile, JsonEncoding.UTF8)) {
+				jsonGen.setCodec(new ObjectMapper());
+				jsonGen.setPrettyPrinter(new DefaultPrettyPrinter());
+				jsonGen.writeStartObject();
+				jsonGen.writeFieldName("rows");
+				jsonGen.writeStartArray();
+				for (long l = 0; l < rows; l++) {
+					RowDto row = createRandomRow(l);
+					jsonGen.writeObject(row);
+				}
+				jsonGen.writeEndArray();
+				jsonGen.writeEndObject();
+			}
+		}
+		return "import." + type;
 	}
 
-	private String convertRowToCsv(Row row) {
+	private String convertRowToCsv(RowDto row) {
 		StringBuilder csvRow = new StringBuilder();
 		csvRow.append(row.getDate1()).append(",");
 		csvRow.append(row.getDate2()).append(",");
@@ -123,8 +151,8 @@ public class ImportService {
 		return csvRow.toString();
 	}
 
-	private Row createRandomRow(long l) {
-		Row row = new Row();
+	private RowDto createRandomRow(long l) {
+		RowDto row = new RowDto();
 		row.setDate1(LocalDate.now().plusDays((long) (Math.random() * 30)));
 		row.setDate2(LocalDate.now().plusDays((long) (Math.random() * 30)));
 		row.setDate3(LocalDate.now().plusDays((long) (Math.random() * 30)));
