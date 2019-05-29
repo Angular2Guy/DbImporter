@@ -13,14 +13,15 @@
 package ch.xxx.dbimporter.service;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.BaseStream;
 import java.util.stream.Stream;
@@ -65,32 +66,39 @@ public class ImportService {
 		this.rowRepository.bulkDelete();
 		LOG.info(String.format("ImportFile Db cleaned in %d sec",
 				Duration.between(start, LocalDateTime.now()).getSeconds()));
+		File dir = new File(this.tmpDir);
+		File[] files = dir.listFiles(new FilenameFilter() {
+			@Override
+			public boolean accept(File arg0, String arg1) {
+				return arg1.endsWith("." + fileType);
+			}
+		});
 		if (fileType.contains("csv")) {
-			Path csvPath = Paths.get(this.tmpDir + "/import." + fileType);
-			Flux<String> lineFlux = Flux.using(() -> Files.lines(csvPath), Flux::fromStream, BaseStream::close);
+//			Path csvPath = multifile ? null : Paths.get(this.tmpDir + "/import." + fileType);
+			Flux<String> lineFlux = Flux.using(() -> readFiles(files), Flux::fromStream, BaseStream::close);
 			lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel())
 					.subscribe(rows -> this.storeRows(rows, start));
 		}
 		if (fileType.contains("json")) {
-			File jsonFile = new File(this.tmpDir + "/import." + fileType);
-			JsonParser parser = this.createParser(jsonFile);
-			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(parser), Flux::fromStream, st -> { 				
-				st.close();
-				try {
-					parser.close();
-				} catch (IOException e) {
-					LOG.error("parser failed to close.",e);
-				}
-				LOG.info("File import Done.");
-			});
+//			jsonFiles[0] = new File(this.tmpDir + "/import." + fileType);
+			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(files), Flux::fromStream, BaseStream::close);
 			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
-				.subscribe(rows -> this.storeRows(rows, start));
+					.subscribe(rows -> this.storeRows(rows, start));
 		}
 		return "Done";
 	}
 
-	
-	
+	private Stream<String> readFiles(File[] files) {
+		return Arrays.stream(files).flatMap(file -> {
+			try {
+				return Files.lines(Paths.get(file.getPath()));
+			} catch (IOException e) {
+				LOG.error("Path error.", e);
+				return null;
+			}
+		});
+	}
+
 	private Flux<Row> dtoToRow(RowDto dto) {
 		Row row = new Row();
 		row.setDate1(dto.getDate1());
@@ -113,28 +121,50 @@ public class ImportService {
 		row.setStr9(dto.getStr9());
 		return Flux.just(row);
 	}
-	
-	private JsonParser createParser(File file) throws IOException {
-		JsonParser parser = new JsonFactory().createParser(file);
-		parser.setCodec(this.createObjectMapper());
-		parser.nextToken();
-		while (parser.getCurrentName() == null || !parser.getCurrentName().equals("rows")) {
+
+	private JsonParser createParser(File file) {
+		JsonParser parser = null;
+		try {
+			parser = new JsonFactory().createParser(file);
+			parser.setCodec(this.createObjectMapper());
 			parser.nextToken();
+			while (parser.getCurrentName() == null || !parser.getCurrentName().equals("rows")) {
+				parser.nextToken();
+			}
+			parser.nextToken();
+			parser.nextToken();
+		} catch (Exception e) {
+			LOG.error("parser exeption", e);
 		}
-		parser.nextToken();
-		parser.nextToken();
 		return parser;
 	}
 
-	private Stream<RowDto> readRowDto(JsonParser parser) throws IOException {
-		 RowDto rowDto = parser.readValueAs(RowDto.class);
-		 return Stream.iterate(rowDto, x -> x != null, (x) -> {
-			try {
-				return parser.readValueAs(RowDto.class);
-			} catch (IOException e) {
-				return null;
-			}
+	private Stream<RowDto> readRowDto(File[] files) throws IOException {
+		return Arrays.stream(files).flatMap(file -> {
+			JsonParser parser = this.createParser(file);
+			RowDto rowDto = this.readRowDto(parser);
+			return Stream.iterate(rowDto, x -> x != null, 
+					(x) -> this.readRowDto(parser)).onClose(() -> {
+				closeParser(parser);
+			});
 		});
+	}
+
+	private RowDto readRowDto(JsonParser parser) {
+		try {				
+			return parser.readValueAs(RowDto.class);
+		} catch (IOException e) {
+			LOG.error("parsing error", e);
+			return null;
+		}
+	}
+	
+	private void closeParser(JsonParser parser) {
+		try {
+			parser.close();
+		} catch (IOException e) {
+			LOG.error("parsing error", e);
+		}
 	}
 
 	@Transactional
