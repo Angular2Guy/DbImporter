@@ -74,7 +74,14 @@ public class ImportService {
 		if (fileType.contains("json")) {
 			File jsonFile = new File(this.tmpDir + "/import." + fileType);
 			JsonParser parser = this.createParser(jsonFile);
-			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(parser), Flux::fromStream, BaseStream::close);
+			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(parser), Flux::fromStream, st -> { 				
+				st.close();
+				try {
+					parser.close();
+				} catch (IOException e) {
+					LOG.error("parser failed to close.",e);
+				}
+			});
 			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
 				.subscribe(rows -> this.storeRows(rows, start));
 //			try (JsonParser parser = new JsonFactory().createParser(jsonFile)) {
