@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import ch.xxx.dbimporter.service.ImportService;
 import reactor.core.publisher.Mono;
 
@@ -32,15 +34,19 @@ public class ImportController {
 	@GetMapping("/single")
 	public Mono<String> importSingleFile(@RequestParam String type) {
 		try {
-			return Mono.just(this.service.importFile(type));
+			return Mono.just(this.service.importFile(type, false));
 		} catch (IOException e) {
 			return Mono.empty();
 		}
 	}
 	
 	@GetMapping("/multi")
-	public Mono<Long> importMultiFile() {
-		return Mono.just(0L);
+	public Mono<String> importMultiFile(@RequestParam String type) {
+		try {
+			return Mono.just(this.service.importFile(type, true));		
+		} catch (IOException e) {
+			return Mono.empty();
+		}
 	}
 	
 	@GetMapping("/generate")

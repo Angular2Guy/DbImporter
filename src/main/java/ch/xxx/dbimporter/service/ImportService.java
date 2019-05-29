@@ -59,7 +59,7 @@ public class ImportService {
 	private RowRepository rowRepository;
 	private static final int MB = 1024 * 1024;
 
-	public String importFile(String fileType) throws JsonProcessingException, IOException {
+	public String importFile(String fileType, boolean multifile) throws JsonProcessingException, IOException {
 		LOG.info("ImportFile start");
 		LocalDateTime start = LocalDateTime.now();
 		this.rowRepository.bulkDelete();
@@ -81,7 +81,7 @@ public class ImportService {
 				} catch (IOException e) {
 					LOG.error("parser failed to close.",e);
 				}
-				LOG.info("Import Done.");
+				LOG.info("File import Done.");
 			});
 			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
 				.subscribe(rows -> this.storeRows(rows, start));
@@ -89,6 +89,8 @@ public class ImportService {
 		return "Done";
 	}
 
+	
+	
 	private Flux<Row> dtoToRow(RowDto dto) {
 		Row row = new Row();
 		row.setDate1(dto.getDate1());
