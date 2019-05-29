@@ -81,22 +81,10 @@ public class ImportService {
 				} catch (IOException e) {
 					LOG.error("parser failed to close.",e);
 				}
+				LOG.info("Import Done.");
 			});
 			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
 				.subscribe(rows -> this.storeRows(rows, start));
-//			try (JsonParser parser = new JsonFactory().createParser(jsonFile)) {
-//				parser.setCodec(this.createObjectMapper());
-//				parser.nextToken();
-//				while (parser.getCurrentName() == null || !parser.getCurrentName().equals("rows")) {
-//					parser.nextToken();
-//				}
-//				parser.nextToken();
-//				parser.nextToken();
-//				RowDto rowDto = null;
-//				do {
-//					rowDto = readRowDto(parser);
-//				} while (rowDto != null);
-//			}
 		}
 		return "Done";
 	}
