@@ -21,6 +21,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.BaseStream;
@@ -29,8 +30,6 @@ import java.util.stream.Stream;
 import javax.transaction.Transactional;
 
 import org.apache.commons.lang3.RandomStringUtils;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,29 +77,28 @@ public class ImportService {
 			}
 		}) : oneFile;
 		if (fileType.contains("csv")) {
-//			Path csvPath = multifile ? null : Paths.get(this.tmpDir + "/import." + fileType);
-			Flux<String> lineFlux = Flux.using(() -> readFiles(files), Flux::fromStream, BaseStream::close);
+			List<Flux<String>> resultFluxList = new ArrayList<>();
+			Arrays.stream(files).forEach(file -> {
+				resultFluxList.add(Flux.using(() -> readFiles(file), Flux::fromStream, BaseStream::close));
+			});
+			Flux<String> lineFlux = Flux.concat(resultFluxList);
 			lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel())
 					.subscribe(rows -> this.storeRows(rows, start));
 		}
 		if (fileType.contains("json")) {
-//			jsonFiles[0] = new File(this.tmpDir + "/import." + fileType);
-			Flux<RowDto> rowFlux = Flux.using(() -> this.readRowDto(files), Flux::fromStream, BaseStream::close);
+			List<Flux<RowDto>> resultFluxList = new ArrayList<>();
+			Arrays.stream(files).forEach(file -> {
+				resultFluxList.add(Flux.using(() -> this.readRowDto(file), Flux::fromStream, BaseStream::close));
+			});
+			Flux<RowDto> rowFlux = Flux.concat(resultFluxList);
 			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
 					.subscribe(rows -> this.storeRows(rows, start));
 		}
 		return "Done";
 	}
 
-	private Stream<String> readFiles(File[] files) throws IOException {		
-//		return Arrays.stream(files).flatMap(file -> {
-//			try {
-				return Files.lines(Paths.get(files[0].getPath()));
-//			} catch (IOException e) {
-//				LOG.error("Path error.", e);
-//				return null;
-//			}
-//		});
+	private Stream<String> readFiles(File file) throws IOException {
+		return Files.lines(Paths.get(file.getPath()));
 	}
 
 	private Flux<Row> dtoToRow(RowDto dto) {
@@ -143,26 +141,23 @@ public class ImportService {
 		return parser;
 	}
 
-	private Stream<RowDto> readRowDto(File[] files) throws IOException {		
-//		return Arrays.stream(files).flatMap(file -> {
-			JsonParser parser = this.createParser(files[0]);
-			RowDto rowDto = this.readRowDto(parser);
-			return Stream.iterate(rowDto, x -> x != null, 
-					(x) -> this.readRowDto(parser)).onClose(() -> {
-				closeParser(parser);
-			});
-//		});
+	private Stream<RowDto> readRowDto(File file) throws IOException {
+		JsonParser parser = this.createParser(file);
+		RowDto rowDto = this.readRowDto(parser);
+		return Stream.iterate(rowDto, x -> x != null, (x) -> this.readRowDto(parser)).onClose(() -> {
+			closeParser(parser);
+		});
 	}
 
 	private RowDto readRowDto(JsonParser parser) {
-		try {				
+		try {
 			return parser.readValueAs(RowDto.class);
 		} catch (IOException e) {
 			LOG.error("parsing error", e);
 			return null;
 		}
 	}
-	
+
 	private void closeParser(JsonParser parser) {
 		try {
 			parser.close();
