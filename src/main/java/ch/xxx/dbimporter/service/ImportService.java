@@ -21,6 +21,8 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -171,12 +173,14 @@ public class ImportService {
 
 	@Transactional
 	private void storeRows(List<Row> rows, LocalDateTime start) {
+		LocalDateTime begin = LocalDateTime.now();
 		this.entityManager.clear();
 		this.rowRepository.saveAll(rows);		
 		this.rowRepository.flush();
-		LOG.info(String.format("Rows stored in %d sec, Mem %d mb",
-				Duration.between(start, LocalDateTime.now()).getSeconds(),
-				((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / MB)));
+		LOG.info(String.format("%d Rows flushed in %d millis, Mem %d mb, total Time %d sec",rows.size(),
+				Duration.between(begin, LocalDateTime.now()).getNano() / 1000000,
+				((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / MB),
+				Duration.between(start, LocalDateTime.now()).getSeconds()));
 	}
 
 	private ObjectMapper createObjectMapper() {
