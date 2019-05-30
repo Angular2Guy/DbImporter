@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.stream.BaseStream;
 import java.util.stream.Stream;
 
+import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 
 import org.apache.commons.lang3.RandomStringUtils;
@@ -59,6 +60,8 @@ public class ImportService {
 	private String tmpDir;
 	@Autowired
 	private RowRepository rowRepository;
+	@Autowired
+	private EntityManager entityManager;
 	private static final int MB = 1024 * 1024;
 
 	public String importFile(String fileType, boolean multifile) throws JsonProcessingException, IOException {
@@ -168,7 +171,9 @@ public class ImportService {
 
 	@Transactional
 	private void storeRows(List<Row> rows, LocalDateTime start) {
-		this.rowRepository.saveAll(rows);
+		this.entityManager.clear();
+		this.rowRepository.saveAll(rows);		
+		this.rowRepository.flush();
 		LOG.info(String.format("Rows stored in %d sec, Mem %d mb",
 				Duration.between(start, LocalDateTime.now()).getSeconds(),
 				((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / MB)));
