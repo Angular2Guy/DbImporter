@@ -29,6 +29,8 @@ import java.util.stream.Stream;
 import javax.transaction.Transactional;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,12 +69,14 @@ public class ImportService {
 		LOG.info(String.format("ImportFile Db cleaned in %d sec",
 				Duration.between(start, LocalDateTime.now()).getSeconds()));
 		File dir = new File(this.tmpDir);
-		File[] files = dir.listFiles(new FilenameFilter() {
+		File[] oneFile = new File[1];
+		oneFile[0] = new File(this.tmpDir + "/import." + fileType);
+		File[] files = multifile ? dir.listFiles(new FilenameFilter() {
 			@Override
 			public boolean accept(File arg0, String arg1) {
 				return arg1.endsWith("." + fileType);
 			}
-		});
+		}) : oneFile;
 		if (fileType.contains("csv")) {
 //			Path csvPath = multifile ? null : Paths.get(this.tmpDir + "/import." + fileType);
 			Flux<String> lineFlux = Flux.using(() -> readFiles(files), Flux::fromStream, BaseStream::close);
@@ -88,15 +92,15 @@ public class ImportService {
 		return "Done";
 	}
 
-	private Stream<String> readFiles(File[] files) {
-		return Arrays.stream(files).flatMap(file -> {
-			try {
-				return Files.lines(Paths.get(file.getPath()));
-			} catch (IOException e) {
-				LOG.error("Path error.", e);
-				return null;
-			}
-		});
+	private Stream<String> readFiles(File[] files) throws IOException {		
+//		return Arrays.stream(files).flatMap(file -> {
+//			try {
+				return Files.lines(Paths.get(files[0].getPath()));
+//			} catch (IOException e) {
+//				LOG.error("Path error.", e);
+//				return null;
+//			}
+//		});
 	}
 
 	private Flux<Row> dtoToRow(RowDto dto) {
@@ -139,15 +143,15 @@ public class ImportService {
 		return parser;
 	}
 
-	private Stream<RowDto> readRowDto(File[] files) throws IOException {
-		return Arrays.stream(files).flatMap(file -> {
-			JsonParser parser = this.createParser(file);
+	private Stream<RowDto> readRowDto(File[] files) throws IOException {		
+//		return Arrays.stream(files).flatMap(file -> {
+			JsonParser parser = this.createParser(files[0]);
 			RowDto rowDto = this.readRowDto(parser);
 			return Stream.iterate(rowDto, x -> x != null, 
 					(x) -> this.readRowDto(parser)).onClose(() -> {
 				closeParser(parser);
 			});
-		});
+//		});
 	}
 
 	private RowDto readRowDto(JsonParser parser) {
