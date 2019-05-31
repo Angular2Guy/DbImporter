@@ -18,11 +18,13 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.SequenceGenerator;
 
 @Entity
 public class Row {
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.AUTO,generator = "row_seq")
+	@SequenceGenerator(allocationSize = 100, name = "row_seq")
 	private Long id;
 	private String str1;
 	private String str2;
