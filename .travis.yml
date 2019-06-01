@@ -1,0 +1,16 @@
+language: java
+    
+jdk:
+  - oraclejdk11
+
+services:
+  - docker
+  
+notifications:
+  email:
+    - angular2guy@gmx.ch
+  on_success: always
+  on_failure: always
+      
+script:
+  mvn clean install
