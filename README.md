@@ -3,7 +3,7 @@
 ![Build Status](https://travis-ci.org/Angular2Guy/DbImporter.svg?branch=master)
 
 ## Purpose
-The project had the purpose to test the performance of Spring Boot with Jpa and Webflux for the import of larger(3GB file, 10M rows) Dataset. As Database Postgresql is used because easy to use and free and can be run as Docker image.
+The project had the purpose to test the performance of Spring Boot with Jpa and Webflux for the import of larger(3GB/5.8GB file, 10M rows) Dataset(csv/json). As Database Postgresql is used because easy to use and free and can be run as Docker image.
 
 ## Create a inputfile
 To import a larger Dataset the Db Importer can create it with the rest endpoint: /rest/import/generate?rows=10000000&type=csv
