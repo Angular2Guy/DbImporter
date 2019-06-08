@@ -175,8 +175,7 @@ public class ImportService {
 	private void storeRows(List<Row> rows, LocalDateTime start) {
 		LocalDateTime begin = LocalDateTime.now();
 		this.entityManager.clear();
-		this.rowRepository.saveAll(rows);		
-		this.rowRepository.flush();
+		this.rowRepository.saveAll(rows);				
 		LOG.info(String.format("%d Rows flushed in %d millis, Mem %d mb, total Time %d sec",rows.size(),
 				Duration.between(begin, LocalDateTime.now()).getNano() / 1000000,
 				((Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / MB),
