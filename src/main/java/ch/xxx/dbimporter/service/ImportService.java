@@ -87,7 +87,7 @@ public class ImportService {
 				resultFluxList.add(Flux.using(() -> readFiles(file), Flux::fromStream, BaseStream::close));
 			});
 			Flux<String> lineFlux = Flux.concat(resultFluxList);
-			lineFlux.flatMap(str -> this.strToRow(str)).buffer(1000).parallel().runOn(Schedulers.parallel())
+			lineFlux.flatMap(str -> this.strToRow(str)).buffer(200).parallel().runOn(Schedulers.parallel())
 					.subscribe(rows -> this.storeRows(rows, start));
 		}
 		if (fileType.contains("json")) {
@@ -96,7 +96,7 @@ public class ImportService {
 				resultFluxList.add(Flux.using(() -> this.readRowDto(file), Flux::fromStream, BaseStream::close));
 			});
 			Flux<RowDto> rowFlux = Flux.concat(resultFluxList);
-			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(1000).parallel().runOn(Schedulers.parallel())
+			rowFlux.flatMap(rowDto -> this.dtoToRow(rowDto)).buffer(200).parallel().runOn(Schedulers.parallel())
 					.subscribe(rows -> this.storeRows(rows, start));
 		}
 		return "Done";
