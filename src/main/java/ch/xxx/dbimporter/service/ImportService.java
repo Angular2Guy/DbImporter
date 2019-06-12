@@ -76,12 +76,7 @@ public class ImportService {
 		File dir = new File(this.tmpDir);
 		File[] oneFile = new File[1];
 		oneFile[0] = new File(this.tmpDir + "/import." + fileType);
-		File[] files = multifile ? dir.listFiles(new FilenameFilter() {
-			@Override
-			public boolean accept(File arg0, String arg1) {
-				return arg1.endsWith("." + fileType);
-			}
-		}) : oneFile;
+		File[] files = multifile ? dir.listFiles((File arg0, String arg1) -> arg1.endsWith("." + fileType)) : oneFile;
 		if (fileType.contains("csv")) {
 			List<Flux<String>> resultFluxList = new ArrayList<>();
 			Arrays.stream(files).forEach(file -> {
